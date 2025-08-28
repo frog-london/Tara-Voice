@@ -7,9 +7,50 @@ import starSvg from '../assets/star.svg';
 // Web Speech API type declarations
 declare global {
   interface Window {
-    SpeechRecognition: typeof SpeechRecognition;
-    webkitSpeechRecognition: typeof SpeechRecognition;
+    SpeechRecognition: new () => SpeechRecognition;
+    webkitSpeechRecognition: new () => SpeechRecognition;
   }
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onstart: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onresult: ((this: SpeechRecognition, ev: SpeechRecognitionEvent) => any) | null;
+  onend: ((this: SpeechRecognition, ev: Event) => any) | null;
+  onerror: ((this: SpeechRecognition, ev: SpeechRecognitionErrorEvent) => any) | null;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+  message: string;
 }
 
 /* 
@@ -111,12 +152,10 @@ const VoiceChatStage: React.FC = () => {
   const [isChatMode, setIsChatMode] = useState(false);
   const [animationState, setAnimationState] = useState<'idle' | 'listening' | 'thinking' | 'responding'>('idle');
   const [originalDotColor] = useState('hsl(200, 100%, 60%)');
-  const [isWakeWordListening, setIsWakeWordListening] = useState(true);
   const [userQuestion, setUserQuestion] = useState('');
   const [responseText, setResponseText] = useState('');
   const [showTextBox, setShowTextBox] = useState(false);
-  const [wakeWordRecognition, setWakeWordRecognition] = useState<any>(null);
-  const [questionRecognition, setQuestionRecognition] = useState<any>(null);
+  const [wakeWordRecognition, setWakeWordRecognition] = useState<SpeechRecognition | null>(null);
   const [sessionTime, setSessionTime] = useState(0); // Time in seconds
   const [showIdleHint, setShowIdleHint] = useState(false);
   
@@ -429,7 +468,6 @@ const VoiceChatStage: React.FC = () => {
   // Start listening stage when wake word is detected
   const startListeningStage = useCallback(async () => {
     setAnimationState('listening');
-    setIsWakeWordListening(false); // Stop wake word detection
     setShowIdleHint(false); // Hide idle hint
     
     // CRITICAL: Stop wake word recognition to free microphone for Safari
@@ -539,7 +577,6 @@ const VoiceChatStage: React.FC = () => {
       setTimeout(() => returnToIdle(), 3000);
     };
 
-    setQuestionRecognition(recognition);
     recognition.start();
   }, [userQuestion]);
 
@@ -574,7 +611,6 @@ const VoiceChatStage: React.FC = () => {
     setResponseText('');
     setUserQuestion('Listening...');
     setShowTextBox(true);
-    setIsWakeWordListening(false); // Don't restart wake word detection
     
     // Change color to #2172F4 (blue)
     if ((window as any).startColorTransition) {
@@ -642,7 +678,6 @@ const VoiceChatStage: React.FC = () => {
     setUserQuestion('');
     setResponseText('');
     setShowTextBox(false);
-    setIsWakeWordListening(true); // Restart wake word detection
     
     // Return to original color
     if ((window as any).startColorTransition) {
