@@ -1,0 +1,306 @@
+/* Global font */
+* {
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* All caps text styling */
+.all-caps {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Fullscreen Wrapper - 1920x1080 container with background */
+.fullscreen-wrapper {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+}
+
+.background-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  z-index: 0;
+}
+
+/* App Container - Full screen transparent container */
+.app-container {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  z-index: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Monitor frame aspect ratio - 16:9 */
+.app-container::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: -1;
+}
+
+/* Voice Chat Stage */
+.voice-chat-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  position: relative;
+}
+
+/* Top Bar */
+.top-bar {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 800;
+}
+
+.top-bar-left {
+  color: white;
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(10px);
+  border-radius: 25px;
+  margin-left: 30px;
+}
+
+.top-bar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  padding: 10px 20px;
+  background: rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(10px);
+  border-radius: 30px;
+}
+
+.top-bar-right {
+  margin-right: 30px;
+}
+
+.control-panel-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.control-panel-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Halftone Canvas */
+.halftone-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.halftone-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Control Panel */
+.floating-control-panel {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 280px;
+  max-height: 700px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  z-index: 900;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.minimize-controls-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  z-index: 1001;
+}
+
+.minimize-controls-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.control-panel {
+  color: white;
+  padding: 20px;
+}
+
+.control-panel h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #ffffff;
+  font-size: 1.1rem;
+  text-align: center;
+  font-weight: 600;
+}
+
+.control-group {
+  margin-bottom: 20px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.control-group input[type="range"] {
+  width: 100%;
+  margin: 5px 0;
+}
+
+.control-group input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+.control-group select {
+  width: 100%;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 4px;
+}
+
+.control-group button {
+  width: 100%;
+  padding: 8px;
+  background: rgba(33, 188, 244, 0.8);
+  border: 1px solid #21BCF4;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.control-group button:hover {
+  background: rgba(33, 188, 244, 1);
+}
+
+/* Audio Error */
+.audio-error {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(255, 0, 0, 0.1);
+  border: 1px solid rgba(255, 0, 0, 0.5);
+  color: #ff6b6b;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+
+/* Floating Text Box for Questions and Responses */
+.floating-text-box {
+  position: absolute;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 20px 30px;
+  color: white;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  max-width: 80%;
+  min-width: 300px;
+  text-align: center;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Response mode styling for Tara's answers */
+.floating-text-box.response-mode {
+  background: #243047;
+  color: #0CE2DF;
+}
+
+/* Idle hint - appears after 5 seconds of inactivity */
+.idle-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 38%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 24px;
+  font-size: 0.85rem;
+  text-align: center;
+  text-transform: uppercase;
+  z-index: 900;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
