@@ -3,6 +3,7 @@ import { HalftoneCanvas, HalftoneParams } from './HalftoneCanvas';
 import SimpleControlPanel from './SimpleControlPanel';
 import { useAudioAnalyzer } from '../hooks/useAudioAnalyzer';
 import starSvg from '../assets/star.svg';
+import { useSocket } from '@/hooks/useSocket';
 
 // Web Speech API type declarations
 declare global {
@@ -158,6 +159,8 @@ const VoiceChatStage: React.FC = () => {
   const [wakeWordRecognition, setWakeWordRecognition] = useState<SpeechRecognition | null>(null);
   const [sessionTime, setSessionTime] = useState(0); // Time in seconds
   const [showIdleHint, setShowIdleHint] = useState(false);
+
+  const { messages, sendMessage, resetMessages } = useSocket(crypto.randomUUID());
   
   // Refs to track current state values and avoid stale closures
   const animationStateRef = useRef(animationState);
@@ -563,6 +566,7 @@ const VoiceChatStage: React.FC = () => {
         // ** BACKEND INTEGRATION **: User question captured successfully
         // The captured question is stored in 'capturedQuestion' variable
         // This is what should be sent to the LLM system
+        sendMessage(capturedQuestion.trim());
         console.log('User question for LLM:', capturedQuestion);
         startThinkingAnimation();
       } else {
@@ -608,7 +612,8 @@ const VoiceChatStage: React.FC = () => {
   // Return to listening mode after response (for continuous conversation)
   const returnToListening = useCallback(async () => {
     setAnimationState('listening');
-    setResponseText('');
+    // setResponseText('');
+    resetMessages();
     setUserQuestion('Listening...');
     setShowTextBox(true);
     
@@ -643,7 +648,7 @@ const VoiceChatStage: React.FC = () => {
     setUserQuestion('');
     
     // ** BACKEND TODO **: Replace this placeholder text with LLM response
-    setResponseText("Hi, I'm Dr Tara Singh, former Mission Specialist in astrobiology and life sciences research onboard the International Space Station. I'm just back from my first mission in space and busy training for my next. I'm here to answer any questions you might have about space exploration, life onboard the ISS and what it's like to be astronaut. To get started, press and hold the orange button and ask away.");
+    // setResponseText("Hi, I'm Dr Tara Singh, former Mission Specialist in astrobiology and life sciences research onboard the International Space Station. I'm just back from my first mission in space and busy training for my next. I'm here to answer any questions you might have about space exploration, life onboard the ISS and what it's like to be astronaut. To get started, press and hold the orange button and ask away.");
     
     // Configure RESPONDING mode: idle color + audio reactivity for TTS
     setParams(prev => ({
@@ -676,7 +681,8 @@ const VoiceChatStage: React.FC = () => {
   const returnToIdle = useCallback(() => {
     setAnimationState('idle');
     setUserQuestion('');
-    setResponseText('');
+    // setResponseText('');
+    resetMessages();
     setShowTextBox(false);
     
     // Return to original color
@@ -789,7 +795,7 @@ const VoiceChatStage: React.FC = () => {
       {/* Floating text box for questions and responses */}
       {showTextBox && (userQuestion || responseText) && (
         <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
-          {userQuestion || responseText}
+          {userQuestion || messages.map((message: any) => message.text).join('\n')}
         </div>
       )}
 
