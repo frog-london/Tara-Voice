@@ -74,7 +74,6 @@ export const useSocket = (
         console.warn("Socket.IO not connected. Dropping message.");
         return;
       }
-      console.log(`Sending message (Socket.IO): ${message}`);
       s.emit(
         "chat-request",
         JSON.stringify({

@@ -161,7 +161,7 @@ const VoiceChatStage: React.FC = () => {
   const [showIdleHint, setShowIdleHint] = useState(false);
 
   const { messages, sendMessage, resetMessages } = useSocket(crypto.randomUUID());
-  
+
   // Refs to track current state values and avoid stale closures
   const animationStateRef = useRef(animationState);
   const startListeningStageRef = useRef<any>(null);
@@ -229,8 +229,8 @@ const VoiceChatStage: React.FC = () => {
     // Initialize chat mode and idle animation automatically
     setIsChatMode(true);
     setAnimationState('idle');
-    setParams(prev => ({ 
-      ...prev, 
+    setParams(prev => ({
+      ...prev,
       loopingMode: true,
       loopCycles: -1,
       loopAnimationType: 'pulse',
@@ -238,7 +238,7 @@ const VoiceChatStage: React.FC = () => {
       pulseMaxRadius: 60,
       pulseFalloffWidth: 35
     }));
-    
+
     // Start the infinite pulse animation after parameters are set
     setTimeout(() => {
       if ((window as any).playHalftoneLoop) {
@@ -262,12 +262,12 @@ const VoiceChatStage: React.FC = () => {
 
   const handleMessageSent = useCallback(() => {
     setAnimationState('thinking');
-    
+
     // Calculate cycles for 4-second window (with 7s cycle duration, we want ~0.57 cycles)
     const thinkingCycles = Math.ceil(4 / 7); // 1 cycle to fit in 4 seconds
-    
-    setParams(prev => ({ 
-      ...prev, 
+
+    setParams(prev => ({
+      ...prev,
       dotColor: '#21F4DF', // Set permanent thinking color
       loopingMode: true, // Enable looping for thinking animation
       loopAnimationType: 'pulse', // Pulse animation with star rotation
@@ -278,21 +278,21 @@ const VoiceChatStage: React.FC = () => {
       isThinking: true, // Enables star rotation
       maskRotationStartTime: performance.now() // Start rotation timer
     }));
-    
+
     // Start color transition to thinking color
     if ((window as any).startColorTransition) {
       (window as any).startColorTransition('#21F4DF', 500);
     }
-    
+
     // Trigger animation reset to restart from beginning
     if ((window as any).playHalftoneLoop) {
       (window as any).playHalftoneLoop();
     }
-    
+
     // Switch to ripple after rotation phase completes - stay in thinking mode
     setTimeout(() => {
-      setParams(prev => ({ 
-        ...prev, 
+      setParams(prev => ({
+        ...prev,
         loopAnimationType: 'ripple',
         loopDuration: RIPPLE_DURATION / 1000, // Convert to seconds
         loopCycles: 1,
@@ -304,12 +304,12 @@ const VoiceChatStage: React.FC = () => {
         maskRotation: 0
         // Note: keeping isThinking true to maintain thinking color during ripple
       }));
-      
+
       // Re-assert turquoise color to prevent reset when switching to ripple
       if ((window as any).startColorTransition) {
         (window as any).startColorTransition('#21F4DF', 0); // Instant, no transition
       }
-      
+
       // Restart animation with ripple parameters
       if ((window as any).playHalftoneLoop) {
         (window as any).playHalftoneLoop();
@@ -319,8 +319,8 @@ const VoiceChatStage: React.FC = () => {
     // Return to idle after complete thinking animation (give ripple full second)
     setTimeout(() => {
       setAnimationState('idle');
-      setParams(prev => ({ 
-        ...prev, 
+      setParams(prev => ({
+        ...prev,
         loopCycles: -1,
         loopDuration: 6,  // Use updated cycle duration
         loopAnimationType: 'pulse',  // Back to pulse
@@ -331,7 +331,7 @@ const VoiceChatStage: React.FC = () => {
         maskRotationStartTime: undefined,
         maskRotation: 0
       }));
-      
+
       // Restart infinite animation
       if ((window as any).playHalftoneLoop) {
         (window as any).playHalftoneLoop();
@@ -359,18 +359,18 @@ const VoiceChatStage: React.FC = () => {
       clearTimeout(idleTimeoutRef.current);
       idleTimeoutRef.current = null;
     }
-    
+
     // Hide hint when not in idle state
     if (animationState !== 'idle') {
       setShowIdleHint(false);
       return;
     }
-    
+
     // Set timeout to show hint after 5 seconds in idle state
     idleTimeoutRef.current = setTimeout(() => {
       setShowIdleHint(true);
     }, 5000);
-    
+
     return () => {
       if (idleTimeoutRef.current) {
         clearTimeout(idleTimeoutRef.current);
@@ -392,10 +392,10 @@ const VoiceChatStage: React.FC = () => {
 
     const startRecognition = () => {
       if (isListening || !mounted) return;
-      
+
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition = new SpeechRecognition();
-      
+
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = 'en-US';
@@ -405,17 +405,18 @@ const VoiceChatStage: React.FC = () => {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           const transcript = result[0].transcript.toLowerCase().trim();
-          
+
           if (result.isFinal) {
             console.log('Wake word detection heard:', transcript);
           }
-          
+
           // Check current state values using refs - detect on both interim and final
-          if (transcript.includes('hey tara') && 
-              animationStateRef.current === 'idle' && 
-              startListeningStageRef.current) {
+          if (transcript.includes('hey tara') &&
+            animationStateRef.current === 'idle' &&
+            startListeningStageRef.current) {
             console.log('Wake word detected! Starting listening stage...');
             startListeningStageRef.current();
+            resetMessages()
             break; // Stop processing once detected
           }
         }
@@ -425,7 +426,7 @@ const VoiceChatStage: React.FC = () => {
         if (event.error === 'aborted' || !mounted) return;
         console.error('Wake word recognition error:', event.error);
         isListening = false;
-        
+
         // Restart if still idle
         if (mounted && animationStateRef.current === 'idle') {
           setTimeout(() => startRecognition(), 1000);
@@ -457,8 +458,9 @@ const VoiceChatStage: React.FC = () => {
 
     // Start recognition after a small delay to ensure refs are set
     setTimeout(() => {
+      sendMessage('Whats for food today')
       startRecognition();
-    }, 100);
+    }, 1000);
 
     return () => {
       mounted = false;
@@ -472,38 +474,38 @@ const VoiceChatStage: React.FC = () => {
   const startListeningStage = useCallback(async () => {
     setAnimationState('listening');
     setShowIdleHint(false); // Hide idle hint
-    
+
     // CRITICAL: Stop wake word recognition to free microphone for Safari
     if (wakeWordRecognition) {
       wakeWordRecognition.abort();
     }
-    
+
     // Add small delay after stopping wake word to ensure microphone is fully released (Safari)
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Change color to #2172F4 (blue)
     if ((window as any).startColorTransition) {
       (window as any).startColorTransition('#2172F4', 500);
     }
-    
+
     // Start audio analyzer FIRST and ensure it gets microphone priority
     await setAudioEnabled(true);
-    
+
     // Detect Safari for debugging
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     if (isSafari) {
       console.log('[Safari] Audio analyzer started, waiting longer before speech recognition...');
     }
-    
+
     // Set all listening mode parameters at once including color and audio settings
-    setParams(prev => ({ 
-      ...prev, 
+    setParams(prev => ({
+      ...prev,
       dotColor: '#2172F4', // Set permanent listening color
       loopingMode: false,
       audioAnimationMode: 'pulse',
       audioEnabled: true // Ensure audio is enabled in params
     }));
-    
+
     // Start question recognition with longer delay to ensure audio analyzer has microphone priority (Safari)
     const delay = isSafari ? 750 : 400; // Extra time for Safari
     setTimeout(() => {
@@ -528,7 +530,7 @@ const VoiceChatStage: React.FC = () => {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    
+
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
@@ -540,7 +542,7 @@ const VoiceChatStage: React.FC = () => {
     };
 
     let capturedQuestion = '';
-    
+
     recognition.onresult = (event: any) => {
       let interimTranscript = '';
       let finalTranscript = '';
@@ -550,6 +552,7 @@ const VoiceChatStage: React.FC = () => {
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
           capturedQuestion = finalTranscript; // Store final result locally
+          console.log('Final Result', finalTranscript)
         } else {
           interimTranscript += transcript;
         }
@@ -562,11 +565,11 @@ const VoiceChatStage: React.FC = () => {
     recognition.onend = () => {
       console.log('Question recognition ended');
       console.log('Captured question:', capturedQuestion);
+      sendMessage(capturedQuestion.trim());
       if (capturedQuestion && capturedQuestion.trim().length > 0) {
         // ** BACKEND INTEGRATION **: User question captured successfully
         // The captured question is stored in 'capturedQuestion' variable
         // This is what should be sent to the LLM system
-        sendMessage(capturedQuestion.trim());
         console.log('User question for LLM:', capturedQuestion);
         startThinkingAnimation();
       } else {
@@ -587,20 +590,20 @@ const VoiceChatStage: React.FC = () => {
   // Start thinking animation after question is captured - ** BACKEND INTEGRATION POINT **
   const startThinkingAnimation = useCallback(() => {
     setAnimationState('thinking');
-    
+
     // Stop audio reactivity during LLM processing
     setParams(prev => ({ ...prev, audioEnabled: false }));
     stopListening();
-    
+
     // ** BACKEND TODO **: Send captured user question to LLM here
     // - Extract question from userQuestion state
     // - Send to LLM API endpoint
     // - Handle LLM streaming/completion
     // - Store response for TTS conversion
-    
+
     // Trigger thinking animation (4s rotation + 0.5s ripple)
     handleMessageSent();
-    
+
     // ** BACKEND TODO **: Replace this timeout with LLM completion callback
     // When LLM response is ready (within 4s), trigger ripple and proceed to response
     // If LLM takes longer, extend the rotation phase duration
@@ -616,24 +619,24 @@ const VoiceChatStage: React.FC = () => {
     resetMessages();
     setUserQuestion('Listening...');
     setShowTextBox(true);
-    
+
     // Change color to #2172F4 (blue)
     if ((window as any).startColorTransition) {
       (window as any).startColorTransition('#2172F4', 500);
     }
-    
+
     // Start audio analyzer for audio reactivity
     await setAudioEnabled(true);
-    
+
     // Set listening mode parameters
-    setParams(prev => ({ 
-      ...prev, 
+    setParams(prev => ({
+      ...prev,
       dotColor: '#2172F4', // Set permanent listening color
       loopingMode: false,
       audioAnimationMode: 'pulse',
       audioEnabled: true // Ensure audio is enabled in params
     }));
-    
+
     // Start question recognition with delay for Safari compatibility
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     const delay = isSafari ? 750 : 400;
@@ -646,10 +649,10 @@ const VoiceChatStage: React.FC = () => {
   const showResponse = useCallback(async () => {
     setAnimationState('responding');
     setUserQuestion('');
-    
+
     // ** BACKEND TODO **: Replace this placeholder text with LLM response
     // setResponseText("Hi, I'm Dr Tara Singh, former Mission Specialist in astrobiology and life sciences research onboard the International Space Station. I'm just back from my first mission in space and busy training for my next. I'm here to answer any questions you might have about space exploration, life onboard the ISS and what it's like to be astronaut. To get started, press and hold the orange button and ask away.");
-    
+
     // Configure RESPONDING mode: idle color + audio reactivity for TTS
     setParams(prev => ({
       ...prev,
@@ -658,15 +661,15 @@ const VoiceChatStage: React.FC = () => {
       audioEnabled: true, // Enable audio reactivity for TTS
       audioAnimationMode: 'pulse' // Pulse responds to TTS audio
     }));
-    
+
     // Start audio analyzer for TTS visualization
     await setAudioEnabled(true);
-    
+
     // Transition color to idle color for responding
     if ((window as any).startColorTransition) {
       (window as any).startColorTransition('hsl(200, 100%, 60%)', 500);
     }
-    
+
     // ** BACKEND TODO **: Replace 10s timeout with TTS completion callback
     // This 10-second placeholder should be replaced with:
     // - TTS audio generation and playback
@@ -684,15 +687,15 @@ const VoiceChatStage: React.FC = () => {
     // setResponseText('');
     resetMessages();
     setShowTextBox(false);
-    
+
     // Return to original color
     if ((window as any).startColorTransition) {
       (window as any).startColorTransition(originalDotColor, 500);
     }
-    
+
     // Reset to idle animation with original color
-    setParams(prev => ({ 
-      ...prev, 
+    setParams(prev => ({
+      ...prev,
       dotColor: originalDotColor, // Set permanent idle color
       audioEnabled: false,
       loopingMode: true,
@@ -736,7 +739,7 @@ const VoiceChatStage: React.FC = () => {
       {/* Top bar */}
       <div className="top-bar">
         <div className="top-bar-left" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <div 
+          <div
             style={{
               width: '8px',
               height: '8px',
@@ -750,7 +753,7 @@ const VoiceChatStage: React.FC = () => {
         </div>
         <div className="top-bar-center">{formatTime(sessionTime)}</div>
         <div className="top-bar-right">
-          <button 
+          <button
             className="control-panel-toggle"
             onClick={() => setShowControlPanel(!showControlPanel)}
           >
@@ -758,19 +761,19 @@ const VoiceChatStage: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       {/* Full-screen canvas */}
       <div className="halftone-container">
-        <HalftoneCanvas 
-          params={params} 
+        <HalftoneCanvas
+          params={params}
           audioData={audioData}
         />
       </div>
-      
+
       {/* Floating control panel */}
       {showControlPanel && (
         <div className="floating-control-panel">
-          <button 
+          <button
             className="minimize-controls-btn"
             onClick={() => setShowControlPanel(false)}
           >
@@ -780,7 +783,7 @@ const VoiceChatStage: React.FC = () => {
             params={params}
             onParamsChange={setParams}
             onAudioToggle={setAudioEnabled}
-            onEnd={() => {}} // No-op for voice mode
+            onEnd={() => { }} // No-op for voice mode
           />
         </div>
       )}
@@ -798,6 +801,11 @@ const VoiceChatStage: React.FC = () => {
           {userQuestion || messages.map((message: any) => message.text).join('\n')}
         </div>
       )}
+
+      {/* Render the answer */}
+      {messages.length > 0 && <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
+        {messages.map(m => m.text).join('\n')}
+      </div>}
 
       {/* Idle hint - appears after 5 seconds of inactivity */}
       {showIdleHint && (
