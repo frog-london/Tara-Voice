@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { useSpeak } from "./useSpeak";
 
-export const useSocket = (
-  conversationId: string
-) => {
+export const useSocket = (conversationId: string) => {
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
   const [state, setState] = useState<{
@@ -13,6 +12,26 @@ export const useSocket = (
     messages: any[];
   }>({ connected: false, error: null, conversationId, messages: [] });
 
+  const { speak } = useSpeak();
+
+  const sendMessage = (message: string) => {
+    if (socketRef.current?.active === false) {
+      console.warn("Socket.IO not connected. Dropping message.");
+      return;
+    }
+    socketRef.current?.emit(
+      "chat-request",
+      JSON.stringify({
+        conversationId,
+        requestId: crypto.randomUUID(),
+        text: message,
+      }),
+      (res: any) => {
+        console.log(`Message sent successfully: ${res}`);
+      }
+    );
+  };
+
   useEffect(() => {
     const socket = io("ws://localhost:3000", {
       transports: ["websocket"],
@@ -21,33 +40,60 @@ export const useSocket = (
 
     socket.on("connect", () => {
       console.log("Socket.IO connected to server");
-      setState({ connected: true, error: null, conversationId, messages: [] });
+      setState({
+        connected: true,
+        error: null,
+        conversationId,
+        messages: [],
+      });
     });
 
     socket.on("chat-event", (event) => {
-      console.log("Chat event:", event);
-      setState((prev) => ({ ...prev, messages: [...prev.messages, { type: "chat-event", ...event }] }));
+      if (event.event === "CHAT_END_EVENT") {
+        return;
+      }
     });
 
     socket.on("chat-response", (response) => {
-      console.log("Chat response received:", response);
-      setState((prev) => ({ ...prev, messages: [...prev.messages, { type: "chat-response", ...response }] }));
+      // console.log("Chat response received:", response);
+      speak(response.text);
+      setState((prev) => ({
+        ...prev,
+        messages: [...prev.messages, { type: "chat-response", ...response }],
+      }));
     });
 
     socket.on("connect_error", (error) => {
       console.error("Socket.IO connect_error:", error);
-      setState({ connected: false, error: "Socket.IO connect_error", conversationId, messages: [] });
+      setState({
+        connected: false,
+        error: "Socket.IO connect_error",
+        conversationId,
+        messages: state.messages,
+      });
     });
 
     socket.on("error", (error) => {
       console.error("Socket.IO error:", error);
-      setState({ connected: false, error: "Socket.IO error", conversationId, messages: [] });
+      setState({
+        connected: false,
+        error: "Socket.IO error",
+        conversationId,
+        messages: state.messages,
+      });
     });
 
     socket.on("disconnect", (reason) => {
       console.log("Socket.IO disconnected:", reason);
-      setState({ connected: false, error: null, conversationId, messages: [] });
+      setState({
+        connected: false,
+        error: null,
+        conversationId,
+        messages: state.messages,
+      });
     });
+
+    window.sendMessage = sendMessage;
 
     console.log("Socket.IO useEffect initialized");
 
@@ -67,25 +113,10 @@ export const useSocket = (
   return {
     isConnected: state.connected,
     error: state.error,
-    resetMessages: () => setState((prev) => ({ ...prev, messages: [] })),
-    sendMessage: (message: string) => {
-      const s = socketRef.current;
-      if (!s || !state.connected) {
-        console.warn("Socket.IO not connected. Dropping message.");
-        return;
-      }
-      s.emit(
-        "chat-request",
-        JSON.stringify({
-          conversationId,
-          requestId: crypto.randomUUID(),
-          text: message,
-        }),
-        (res: any) => {
-          console.log(`Message sent successfully: ${res}`);
-        }
-      );
+    resetMessages: () => {
+      setState((prev) => ({ ...prev, messages: [] }));
     },
+    sendMessage,
     closeConnection: () => {
       if (socketRef.current) {
         socketRef.current.disconnect();

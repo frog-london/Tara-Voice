@@ -444,7 +444,7 @@ const VoiceChatStage: React.FC = () => {
       try {
         recognition.start();
         isListening = true;
-        console.log('Wake word recognition started');
+        // console.log('Wake word recognition started');
       } catch (error) {
         console.error('Failed to start wake word recognition:', error);
         isListening = false;
@@ -458,7 +458,6 @@ const VoiceChatStage: React.FC = () => {
 
     // Start recognition after a small delay to ensure refs are set
     setTimeout(() => {
-      sendMessage('Whats for food today')
       startRecognition();
     }, 1000);
 
