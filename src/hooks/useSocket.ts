@@ -54,12 +54,13 @@ export const useSocket = (conversationId: string) => {
       }
     });
 
-    socket.on("chat-response", (response) => {
+      socket.on("chat-response", (response) => {
       // console.log("Chat response received:", response);
-      speak(response.text);
+      const res = {...response, text: response.text.replace(/^\s*\[[^\]]+\]\s*/g, '')}
+      speak(res.text);
       setState((prev) => ({
         ...prev,
-        messages: [...prev.messages, { type: "chat-response", ...response }],
+        messages: [...prev.messages, { type: "chat-response", ...res }],
       }));
     });
 
