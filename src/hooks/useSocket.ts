@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { useSpeak } from "./useSpeak";
 
 export const useSocket = (conversationId: string) => {
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
@@ -11,8 +10,6 @@ export const useSocket = (conversationId: string) => {
     conversationId: string;
     messages: any[];
   }>({ connected: false, error: null, conversationId, messages: [] });
-
-  const { speak } = useSpeak();
 
   const sendMessage = (message: string) => {
     if (socketRef.current?.active === false) {
@@ -31,6 +28,17 @@ export const useSocket = (conversationId: string) => {
       }
     );
   };
+
+  const popMessage = useCallback(async (): Promise<any | undefined> => {
+    const msg = await new Promise<string | undefined>((resolve) => {
+      setState((prev) => {
+        const [first, ...rest] = prev.messages;
+        resolve(first);
+        return { ...prev, messages: rest };
+      });
+    });
+    return msg;
+  }, []);
 
   useEffect(() => {
     const socket = io("ws://localhost:3000", {
@@ -54,10 +62,11 @@ export const useSocket = (conversationId: string) => {
       }
     });
 
-      socket.on("chat-response", (response) => {
-      // console.log("Chat response received:", response);
-      const res = {...response, text: response.text.replace(/^\s*\[[^\]]+\]\s*/g, '')}
-      speak(res.text);
+    socket.on("chat-response", (response) => {
+      const res = {
+        ...response,
+        text: response.text.replace(/^\s*\[[^\]]+\]\s*/g, ""),
+      };
       setState((prev) => ({
         ...prev,
         messages: [...prev.messages, { type: "chat-response", ...res }],
@@ -118,6 +127,7 @@ export const useSocket = (conversationId: string) => {
       setState((prev) => ({ ...prev, messages: [] }));
     },
     sendMessage,
+    popMessage,
     closeConnection: () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
