@@ -18,11 +18,11 @@ export const useSocket = (conversationId: string) => {
     }
     socketRef.current?.emit(
       "chat-request",
-      JSON.stringify({
+      {
         conversationId,
         requestId: crypto.randomUUID(),
         text: message,
-      }),
+      },
       (res: any) => {
         console.log(`Message sent successfully: ${res}`);
       }
@@ -41,7 +41,7 @@ export const useSocket = (conversationId: string) => {
   }, []);
 
   useEffect(() => {
-    const socket = io("ws://localhost:3000", {
+    const socket = io("ws://localhost:3001", {
       transports: ["websocket"],
     });
     socketRef.current = socket;
@@ -65,7 +65,7 @@ export const useSocket = (conversationId: string) => {
     socket.on("chat-response", (response) => {
       const res = {
         ...response,
-        text: response.text.replace(/^\s*\[[^\]]+\]\s*/g, ""),
+        text: response.text ? response.text.replace(/^\s*\[[^\]]+\]\s*/g, "") : "",
       };
       setState((prev) => ({
         ...prev,
