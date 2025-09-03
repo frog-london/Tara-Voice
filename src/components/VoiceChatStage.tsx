@@ -4,6 +4,7 @@ import SimpleControlPanel from './SimpleControlPanel';
 import { useAudioAnalyzer } from '../hooks/useAudioAnalyzer';
 import starSvg from '../assets/star.svg';
 import { useSocket } from '@/hooks/useSocket';
+import { useSpeak } from '@/hooks/useSpeak';
 
 // Web Speech API type declarations
 declare global {
@@ -160,7 +161,8 @@ const VoiceChatStage: React.FC = () => {
   const [sessionTime, setSessionTime] = useState(0); // Time in seconds
   const [showIdleHint, setShowIdleHint] = useState(false);
 
-  const { messages, sendMessage, resetMessages } = useSocket(crypto.randomUUID());
+  const { messages, sendMessage, resetMessages, popMessage } = useSocket(crypto.randomUUID());
+  const { currentMessage } = useSpeak(messages, popMessage);
 
   // Refs to track current state values and avoid stale closures
   const animationStateRef = useRef(animationState);
@@ -802,8 +804,8 @@ const VoiceChatStage: React.FC = () => {
       )}
 
       {/* Render the answer */}
-      {messages.length > 0 && <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
-        {messages.map(m => m.text).join('\n')}
+      {currentMessage && <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
+        {currentMessage}
       </div>}
 
       {/* Idle hint - appears after 5 seconds of inactivity */}

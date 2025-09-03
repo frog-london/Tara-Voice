@@ -1,58 +1,38 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export const useSpeak = () => {
-  const ref = useRef<SpeechSynthesisUtterance | null>(null);
-  const [messages, setMessages] = useState<string[]>([]);
-  const [currentMessage, setCurrentMessage] = useState<number | null>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+export function useSpeak(
+  messages: string[],
+  popMessage: () => Promise<any | undefined>
+) {
+  const speakingRef = useRef(false);
 
-  const speak = (text: string) => {
-    setMessages((prev) => [...prev, text]);
+  const [currentMessage, setCurrentMessage] = useState<string | null>(null);
 
-    if (currentMessage === null) {
-      setCurrentMessage(0);
-    }
-  };
-
-
-  useEffect(() => {
-    const handleEnd = () => {
-      ref.current = null;
-    };
-
-    const nextMessage = () => {
-      if (currentMessage === messages.length - 1) {
-        console.log("Finished speaking all messages");
-        setIsSpeaking(false);
-        return setCurrentMessage(null);
-      }
-      setCurrentMessage((prev) => (prev !== null ? prev + 1 : null));
-    };
-
-    ref.current = new SpeechSynthesisUtterance();
-    ref.current.addEventListener("end", nextMessage);
-    window.speechSynthesis.addEventListener("end", handleEnd);
-    return () => {
-      window.speechSynthesis.removeEventListener("end", handleEnd);
-      ref.current?.removeEventListener("end", nextMessage);
-    };
+  const speak = useCallback((text: string) => {
+    return new Promise<void>((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.onend = () => {
+        setCurrentMessage(null);
+        resolve();
+      };
+      utterance.onboundary = () => {
+        setCurrentMessage(text);
+      };
+      speechSynthesis.speak(utterance);
+    });
   }, []);
 
   useEffect(() => {
-    console.log("Next message", currentMessage, messages.length);
-
-    if (currentMessage !== null && messages[currentMessage]) {
-      // get the current message
-      ref.current!.text = messages[currentMessage];
-      window.speechSynthesis.speak(ref.current!);
+    if (!speakingRef.current && messages.length > 0) {
+      (async () => {
+        popMessage().then((msg) => {
+          if (msg) {
+            speak(msg.text.replace(/^\s*\[[^\]]+\]\s*/g, ""));
+          }
+        });
+      })();
     }
+  }, [messages, popMessage, speak]);
 
-    return () => {
-      if (ref.current) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, [currentMessage]);
-
-  return { speak };
-};
+  return { currentMessage };
+}
