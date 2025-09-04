@@ -155,20 +155,42 @@ const VoiceChatStage: React.FC = () => {
   const [animationState, setAnimationState] = useState<'idle' | 'listening' | 'thinking' | 'responding'>('idle');
   const [originalDotColor] = useState('hsl(200, 100%, 60%)');
   const [userQuestion, setUserQuestion] = useState('');
-  const [responseText, setResponseText] = useState('');
   const [showTextBox, setShowTextBox] = useState(false);
   const [wakeWordRecognition, setWakeWordRecognition] = useState<SpeechRecognition | null>(null);
   const [sessionTime, setSessionTime] = useState(0); // Time in seconds
   const [showIdleHint, setShowIdleHint] = useState(false);
+  const [isCurrentlySpeaking, setIsCurrentlySpeaking] = useState(false);
+  const [isQuestionRecognitionActive, setIsQuestionRecognitionActive] = useState(false);
 
   const { messages, sendMessage, resetMessages, popMessage } = useSocket(crypto.randomUUID());
-  const { currentMessage } = useSpeak(messages, popMessage);
+  
+  // Create a stable speech completion callback using useCallback
+  const speechCompleteCallback = useCallback(() => {
+    console.log('Speech complete callback triggered!');
+    console.log('Setting isCurrentlySpeaking to false');
+    setIsCurrentlySpeaking(false);
+    console.log('Calling returnToListening...');
+    // Use ref to call returnToListening to avoid dependency issues
+    if (returnToListeningRef.current) {
+      returnToListeningRef.current();
+    }
+  }, []);
+  
+  const { currentMessage, isSpeaking, hasMessages } = useSpeak(messages, popMessage, speechCompleteCallback);
+  
+  // Update speaking state when speech status changes
+  useEffect(() => {
+    setIsCurrentlySpeaking(isSpeaking || hasMessages);
+  }, [isSpeaking, hasMessages]);
 
   // Refs to track current state values and avoid stale closures
   const animationStateRef = useRef(animationState);
+  const isCurrentlySpeakingRef = useRef(isCurrentlySpeaking);
   const startListeningStageRef = useRef<any>(null);
   const restartWakeWordRef = useRef<any>(null);
   const idleTimeoutRef = useRef<any>(null);
+  const listeningTimeoutRef = useRef<any>(null);
+  const returnToListeningRef = useRef<any>(null);
   const [params, setParams] = useState<HalftoneParams>({
     gridDensity: 36,
     maxDotSize: 85,
@@ -352,7 +374,8 @@ const VoiceChatStage: React.FC = () => {
   // Update refs when values change
   useEffect(() => {
     animationStateRef.current = animationState;
-  }, [animationState]);
+    isCurrentlySpeakingRef.current = isCurrentlySpeaking;
+  }, [animationState, isCurrentlySpeaking]);
 
   // Manage idle hint timer - show hint after 5 seconds of idle state
   useEffect(() => {
@@ -415,6 +438,7 @@ const VoiceChatStage: React.FC = () => {
           // Check current state values using refs - detect on both interim and final
           if (transcript.includes('hey tara') &&
             animationStateRef.current === 'idle' &&
+            !isCurrentlySpeakingRef.current && // Prevent activation while speaking
             startListeningStageRef.current) {
             console.log('Wake word detected! Starting listening stage...');
             startListeningStageRef.current();
@@ -529,8 +553,28 @@ const VoiceChatStage: React.FC = () => {
       return;
     }
 
+    // Prevent multiple recognition instances
+    if (isQuestionRecognitionActive) {
+      console.log('Question recognition already active, skipping');
+      return;
+    }
+
+    // Clear any existing listening timeout
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+      listeningTimeoutRef.current = null;
+    }
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
+
+    // Set 5-second timeout to return to idle if no interaction
+    listeningTimeoutRef.current = setTimeout(() => {
+      console.log('No interaction for 5 seconds, returning to idle');
+      recognition.abort(); // Stop current recognition
+      setIsQuestionRecognitionActive(false);
+      returnToIdle();
+    }, 5000);
 
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -538,13 +582,26 @@ const VoiceChatStage: React.FC = () => {
 
     recognition.onstart = () => {
       console.log('Question recognition started');
+      setIsQuestionRecognitionActive(true);
       setShowTextBox(true);
       setUserQuestion('Listening...');
+      
+      // Clear the 5-second timeout since user interaction started
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
     };
 
     let capturedQuestion = '';
 
     recognition.onresult = (event: any) => {
+      // Clear timeout on first speech input (user started speaking)
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+      
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -565,28 +622,44 @@ const VoiceChatStage: React.FC = () => {
 
     recognition.onend = () => {
       console.log('Question recognition ended');
+      setIsQuestionRecognitionActive(false);
+      
+      // Clear timeout since recognition ended
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+      
       console.log('Captured question:', capturedQuestion);
-      sendMessage(capturedQuestion.trim());
+      
       if (capturedQuestion && capturedQuestion.trim().length > 0) {
-        // ** BACKEND INTEGRATION **: User question captured successfully
-        // The captured question is stored in 'capturedQuestion' variable
-        // This is what should be sent to the LLM system
+        // Only send message if we have a valid question
         console.log('User question for LLM:', capturedQuestion);
+        sendMessage(capturedQuestion.trim());
         startThinkingAnimation();
       } else {
-        // No question captured, return to idle
+        // No question captured, return to idle without sending request
+        console.log('No question captured, returning to idle');
         returnToIdle();
       }
     };
 
     recognition.onerror = (event: any) => {
       console.error('Question recognition error:', event.error);
+      setIsQuestionRecognitionActive(false);
+      
+      // Clear timeout on error
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+        listeningTimeoutRef.current = null;
+      }
+      
       setUserQuestion('Sorry, I couldn\'t hear you clearly. Please try again.');
       setTimeout(() => returnToIdle(), 3000);
     };
 
     recognition.start();
-  }, [userQuestion]);
+  }, [isQuestionRecognitionActive]);
 
   // Start thinking animation after question is captured - ** BACKEND INTEGRATION POINT **
   const startThinkingAnimation = useCallback(() => {
@@ -615,8 +688,15 @@ const VoiceChatStage: React.FC = () => {
 
   // Return to listening mode after response (for continuous conversation)
   const returnToListening = useCallback(async () => {
+    // Safety check: Don't start listening if we're still speaking
+    if (isCurrentlySpeakingRef.current) {
+      console.log('Still speaking, delaying return to listening mode');
+      setTimeout(() => returnToListening(), 500);
+      return;
+    }
+
+    console.log('Transitioning to listening mode');
     setAnimationState('listening');
-    // setResponseText('');
     resetMessages();
     setUserQuestion('Listening...');
     setShowTextBox(true);
@@ -642,17 +722,25 @@ const VoiceChatStage: React.FC = () => {
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     const delay = isSafari ? 750 : 400;
     setTimeout(() => {
-      startQuestionRecognition();
+      // Additional safety check before starting recognition
+      if (!isCurrentlySpeakingRef.current) {
+        startQuestionRecognition();
+      } else {
+        console.log('Speech still in progress, not starting recognition');
+      }
     }, delay);
   }, [setAudioEnabled, startQuestionRecognition]);
+
+  // Update the ref when returnToListening changes
+  useEffect(() => {
+    returnToListeningRef.current = returnToListening;
+  }, [returnToListening]);
 
   // Show AI response - ** BACKEND INTEGRATION POINT **
   const showResponse = useCallback(async () => {
     setAnimationState('responding');
     setUserQuestion('');
-
-    // ** BACKEND TODO **: Replace this placeholder text with LLM response
-    // setResponseText("Hi, I'm Dr Tara Singh, former Mission Specialist in astrobiology and life sciences research onboard the International Space Station. I'm just back from my first mission in space and busy training for my next. I'm here to answer any questions you might have about space exploration, life onboard the ISS and what it's like to be astronaut. To get started, press and hold the orange button and ask away.");
+    setIsCurrentlySpeaking(true);
 
     // Configure RESPONDING mode: idle color + audio reactivity for TTS
     setParams(prev => ({
@@ -671,15 +759,9 @@ const VoiceChatStage: React.FC = () => {
       (window as any).startColorTransition('hsl(200, 100%, 60%)', 500);
     }
 
-    // ** BACKEND TODO **: Replace 10s timeout with TTS completion callback
-    // This 10-second placeholder should be replaced with:
-    // - TTS audio generation and playback
-    // - TTS completion event listener
-    // - Audio stream connection to visualizer
-    setTimeout(() => {
-      returnToListening();
-    }, 10000); // 10s placeholder for TTS playback duration
-  }, [returnToListening, setAudioEnabled]);
+    // Speech completion will automatically trigger returnToListening via handleSpeechComplete
+    // No timeout needed - the useSpeak hook will handle the transition when all messages are spoken
+  }, [setAudioEnabled]);
 
   // Return to idle state
   const returnToIdle = useCallback(() => {
@@ -688,6 +770,12 @@ const VoiceChatStage: React.FC = () => {
     // setResponseText('');
     resetMessages();
     setShowTextBox(false);
+
+    // Clear any listening timeout
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+      listeningTimeoutRef.current = null;
+    }
 
     // Return to original color
     if ((window as any).startColorTransition) {
@@ -797,14 +885,14 @@ const VoiceChatStage: React.FC = () => {
       )}
 
       {/* Floating text box for questions and responses */}
-      {showTextBox && (userQuestion || responseText) && (
-        <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
+      {showTextBox && userQuestion && (
+        <div className="floating-text-box">
           {userQuestion || messages.map((message: any) => message.text).join('\n')}
         </div>
       )}
 
       {/* Render the answer */}
-      {currentMessage && <div className={`floating-text-box${responseText ? ' response-mode' : ''}`}>
+      {currentMessage && <div className="floating-text-box response-mode">
         {currentMessage}
       </div>}
 
